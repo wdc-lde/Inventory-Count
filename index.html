@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Warehouse Item/Location Scanner</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    h2 { color: #333; margin-bottom: 5px; }
+    h3 { color: #07459C; margin-top: 0; margin-bottom: 15px; font-weight: bold; }
+    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .hidden { display: none; }
+    #scanInput { width: 100%; padding: 10px; font-size: 1.1em; margin-bottom: 10px; }
+    #dataTableContainer { max-height: 200px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #ccc; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; font-size: 1em; }
+    tr:hover { background-color: #f1f1f1; }
+    .error { color: red; margin-bottom: 10px; }
+    .info { margin-bottom: 10px; }
+    button { cursor: pointer; }
+    /* Numeric pad styles */
+    #quantityContainer { text-align: center; margin-bottom: 10px; }
+    #quantityDisplay { font-size: 2em; margin-bottom: 10px; }
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      max-width: 300px;
+      margin: auto;
+    }
+    .keypad button {
+      font-size: 1.5em;
+      padding: 15px;
+      background: #e0e0e0;
+      border: none;
+      border-radius: 4px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #delKey { background-color: red; color: white; }
+    #enterKey { background-color: #8EFF26; color: white; }
+    .keypad svg { width: 1em; height: 1em; stroke: currentColor; stroke-width: 4; fill: none; }
+    .quantityInput { width: 60px; }
+  </style>
+</head>
+<body>
+  <!-- User Info -->
+  <div class="container" id="userInfoContainer">
+    <h2>Warehouse Item / Location Scanner</h2>
+    <h3>Inventory Count</h3>
+    <form id="userForm">
+      <div>
+        <label for="userName">User Name:</label>
+        <input type="text" id="userName" required>
+      </div>
+      <div>
+        <label for="warehouseZone">Warehouse Zone:</label>
+        <input type="text" id="warehouseZone" required>
+      </div>
+      <button type="submit">Start</button>
+    </form>
+  </div>
+
+  <!-- Main App -->
+  <div class="container hidden" id="mainApp">
+    <div class="info">
+      <strong>User:</strong> <span id="displayName"></span> |
+      <strong>Warehouse Zone:</strong> <span id="displayZone"></span>
+    </div>
+    <div id="errorMessage" class="error"></div>
+
+    <!-- Scan Input -->
+    <input type="text" id="scanInput" placeholder="Scan/Type Item" autofocus>
+
+    <!-- Quantity Pad -->
+    <div id="quantityContainer" class="hidden">
+      <div id="quantityDisplay">0</div>
+      <div class="keypad">
+        <button class="numKey">1</button>
+        <button class="numKey">2</button>
+        <button class="numKey">3</button>
+        <button class="numKey">4</button>
+        <button class="numKey">5</button>
+        <button class="numKey">6</button>
+        <button class="numKey">7</button>
+        <button class="numKey">8</button>
+        <button class="numKey">9</button>
+        <button id="delKey">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <polyline points="15 6 9 12 15 18" />
+          </svg>
+        </button>
+        <button class="numKey">0</button>
+        <button id="enterKey">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div id="dataTableContainer">
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Location</th>
+            <th>Quantity</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <button id="exportCSV">Export to CSV</button>
+  </div>
+
+  <script>
+    let currentState = 'item';
+    let currentItem = '';
+    let tempLocation = '';
+    let scannedData = JSON.parse(localStorage.getItem('scannedData') || '[]');
+
+    const userInfoContainer = document.getElementById('userInfoContainer');
+    const mainApp = document.getElementById('mainApp');
+    const userForm = document.getElementById('userForm');
+    const displayName = document.getElementById('displayName');
+    const displayZone = document.getElementById('displayZone');
+    const scanInput = document.getElementById('scanInput');
+    const errorMessage = document.getElementById('errorMessage');
+    const dataTableBody = document.querySelector('#dataTable tbody');
+    const exportCSVBtn = document.getElementById('exportCSV');
+    const quantityContainer = document.getElementById('quantityContainer');
+    const quantityDisplay = document.getElementById('quantityDisplay');
+    const numKeys = document.querySelectorAll('.numKey');
+    const delKey = document.getElementById('delKey');
+    const enterKey = document.getElementById('enterKey');
+
+    let userName = '';
+    let warehouseZone = '';
+
+    function loadTable() {
+      dataTableBody.innerHTML = '';
+      scannedData.forEach((e,i) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${e.item}</td>
+          <td>${e.location}</td>
+          <td>${e.quantity}</td>
+          <td><button data-index="${i}" class="deleteRow">Delete</button></td>
+        `;
+        dataTableBody.appendChild(row);
+      });
+      const ct = document.getElementById('dataTableContainer'); ct.scrollTop = ct.scrollHeight;
+    }
+
+    function saveData() {
+      localStorage.setItem('scannedData', JSON.stringify(scannedData));
+    }
+
+    function showError(field) {
+      errorMessage.textContent = `campo incorrecto, verifica que estes escaneando (${field})`;
+      setTimeout(() => errorMessage.textContent = '', 3000);
+    }
+
+    function clearInput() {
+      scanInput.value = ''; scanInput.focus();
+    }
+
+    scanInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault(); const val = scanInput.value.trim();
+        if (currentState === 'item') {
+          if (!val || /^\d+$/.test(val)) { showError('Item'); return clearInput(); }
+          currentItem = val; currentState = 'location'; scanInput.placeholder = 'Scan/Type Location (Only numeric)'; return clearInput();
+        }
+        if (currentState === 'location') {
+          if (!currentItem) { showError('Item'); return clearInput(); }
+          if (!/^\d+$/.test(val)) { showError('Location'); return clearInput(); }
+          tempLocation = val; currentState = 'quantity'; scanInput.classList.add('hidden'); quantityDisplay.textContent = ''; quantityContainer.classList.remove('hidden');
+        }
+      }
+    });
+
+    numKeys.forEach(btn => btn.addEventListener('click', () => { quantityDisplay.textContent += btn.textContent; }));
+    delKey.addEventListener('click', () => { quantityDisplay.textContent = quantityDisplay.textContent.slice(0, -1); });
+    enterKey.addEventListener('click', () => {
+      const q = quantityDisplay.textContent; if (q === '') { showError('Quantity'); return; }
+      const qty = parseInt(q, 10); scannedData.push({ item: currentItem, location: tempLocation, quantity: qty }); saveData(); loadTable();
+      currentItem = ''; tempLocation = ''; currentState = 'item'; quantityContainer.classList.add('hidden'); scanInput.classList.remove('hidden'); scanInput.placeholder = 'Scan/Type Item'; clearInput();
+    });
+
+    dataTableBody.addEventListener('click', e => { if (e.target.matches('button.deleteRow')) { scannedData.splice(+e.target.dataset.index, 1); saveData(); loadTable(); } });
+
+    exportCSVBtn.addEventListener('click', () => {
+      let csv = 'data:text/csv;charset=utf-8,';
+      csv += `User:,${userName}\nWarehouse Zone:,${warehouseZone}\n\n`;
+      csv += 'Item,Location,Quantity\n'; scannedData.forEach(r => csv += `${r.item},${r.location},${r.quantity}\n`);
+      const uri = encodeURI(csv); const a = document.createElement('a'); a.href = uri; a.download = `scanned_data_${Date.now()}.csv`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    });
+
+    userForm.addEventListener('submit', e => {
+      e.preventDefault(); userName = document.getElementById('userName').value.trim(); warehouseZone = document.getElementById('warehouseZone').value.trim();
+      if (!userName || !warehouseZone) return alert('Please fill both fields.');
+      displayName.textContent = userName; displayZone.textContent = warehouseZone;
+      userInfoContainer.classList.add('hidden'); mainApp.classList.remove('hidden'); loadTable(); clearInput();
+    });
+  </script>
+</body>
+</html>
