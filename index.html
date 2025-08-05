@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Inventory Count</title>
+  <title>Warehouse Item/Location Scanner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
@@ -87,15 +87,11 @@
         <button class="numKey">8</button>
         <button class="numKey">9</button>
         <button id="delKey">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <polyline points="15 6 9 12 15 18" />
-          </svg>
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polyline points="15 6 9 12 15 18"/></svg>
         </button>
         <button class="numKey">0</button>
         <button id="enterKey">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><polyline points="20 6 9 17 4 12"/></svg>
         </button>
       </div>
     </div>
@@ -122,6 +118,7 @@
     let currentState = 'item';
     let currentItem = '';
     let tempLocation = '';
+    let rawQuantity = '';
     let scannedData = JSON.parse(localStorage.getItem('scannedData') || '[]');
 
     const userInfoContainer = document.getElementById('userInfoContainer');
@@ -139,8 +136,14 @@
     const delKey = document.getElementById('delKey');
     const enterKey = document.getElementById('enterKey');
 
-    let userName = '';
-    let warehouseZone = '';
+    function formatNumber(str) {
+      if (!str) return '0';
+      return str.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    }
+
+    function updateDisplay() {
+      quantityDisplay.textContent = formatNumber(rawQuantity);
+    }
 
     function loadTable() {
       dataTableBody.innerHTML = '';
@@ -149,12 +152,12 @@
         row.innerHTML = `
           <td>${e.item}</td>
           <td>${e.location}</td>
-          <td>${e.quantity}</td>
-          <td><button data-index="${i}" class="deleteRow">Delete</button></td>
+          <td>${formatNumber(e.quantity.toString())}</td>
+          <td><button data-index=\"${i}\" class=\"deleteRow\">Delete</button></td>
         `;
         dataTableBody.appendChild(row);
       });
-      const ct = document.getElementById('dataTableContainer'); ct.scrollTop = ct.scrollHeight;
+      document.getElementById('dataTableContainer').scrollTop = document.getElementById('dataTableContainer').scrollHeight;
     }
 
     function saveData() {
@@ -167,49 +170,96 @@
     }
 
     function clearInput() {
-      scanInput.value = ''; scanInput.focus();
+      scanInput.value = '';
+      scanInput.focus();
     }
 
     scanInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
-        e.preventDefault(); const val = scanInput.value.trim();
+        e.preventDefault();
+        const val = scanInput.value.trim();
         if (currentState === 'item') {
           if (!val || /^\d+$/.test(val)) { showError('Item'); return clearInput(); }
-          currentItem = val; currentState = 'location'; scanInput.placeholder = 'Scan/Type Location (Only numeric)'; return clearInput();
+          currentItem = val;
+          currentState = 'location';
+          scanInput.placeholder = 'Scan/Type Location (Only numeric)';
+          return clearInput();
         }
         if (currentState === 'location') {
           if (!currentItem) { showError('Item'); return clearInput(); }
           if (!/^\d+$/.test(val)) { showError('Location'); return clearInput(); }
-          tempLocation = val; currentState = 'quantity'; scanInput.classList.add('hidden'); quantityDisplay.textContent = ''; quantityContainer.classList.remove('hidden');
+          tempLocation = val;
+          currentState = 'quantity';
+          scanInput.classList.add('hidden');
+          rawQuantity = '';
+          updateDisplay();
+          quantityContainer.classList.remove('hidden');
         }
       }
     });
 
-    numKeys.forEach(btn => btn.addEventListener('click', () => { quantityDisplay.textContent += btn.textContent; }));
-    delKey.addEventListener('click', () => { quantityDisplay.textContent = quantityDisplay.textContent.slice(0, -1); });
-    enterKey.addEventListener('click', () => {
-      const q = quantityDisplay.textContent; if (q === '') { showError('Quantity'); return; }
-      const qty = parseInt(q, 10); scannedData.push({ item: currentItem, location: tempLocation, quantity: qty }); saveData(); loadTable();
-      currentItem = ''; tempLocation = ''; currentState = 'item'; quantityContainer.classList.add('hidden'); scanInput.classList.remove('hidden'); scanInput.placeholder = 'Scan/Type Item'; clearInput();
+    numKeys.forEach(btn => btn.addEventListener('click', () => {
+      rawQuantity += btn.textContent;
+      updateDisplay();
+    }));
+
+    delKey.addEventListener('click', () => {
+      rawQuantity = rawQuantity.slice(0, -1);
+      updateDisplay();
     });
 
-    dataTableBody.addEventListener('click', e => { if (e.target.matches('button.deleteRow')) { scannedData.splice(+e.target.dataset.index, 1); saveData(); loadTable(); } });
+    enterKey.addEventListener('click', () => {
+      if (!rawQuantity) { showError('Quantity'); return; }
+      const qty = parseInt(rawQuantity, 10);
+      scannedData.push({ item: currentItem, location: tempLocation, quantity: qty });
+      saveData();
+      loadTable();
+      currentItem = '';
+      tempLocation = '';
+      rawQuantity = '';
+      currentState = 'item';
+      quantityContainer.classList.add('hidden');
+      scanInput.classList.remove('hidden');
+      scanInput.placeholder = 'Scan/Type Item';
+      clearInput();
+    });
+
+    dataTableBody.addEventListener('click', e => {
+      if (e.target.matches('button.deleteRow')) {
+        scannedData.splice(+e.target.dataset.index, 1);
+        saveData();
+        loadTable();
+      }
+    });
 
     exportCSVBtn.addEventListener('click', () => {
       let csv = 'data:text/csv;charset=utf-8,';
       csv += `User:,${userName}\nWarehouse Zone:,${warehouseZone}\n\n`;
-      csv += 'Item,Location,Quantity\n'; scannedData.forEach(r => csv += `${r.item},${r.location},${r.quantity}\n`);
-      const uri = encodeURI(csv); const a = document.createElement('a'); a.href = uri; a.download = `scanned_data_${Date.now()}.csv`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      csv += 'Item,Location,Quantity\n';
+      scannedData.forEach(r => {
+        csv += `${r.item},${r.location},${r.quantity}\n`;
+      });
+      const uri = encodeURI(csv);
+      const a = document.createElement('a');
+      a.href = uri;
+      a.download = `scanned_data_${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     });
 
     userForm.addEventListener('submit', e => {
-      e.preventDefault(); userName = document.getElementById('userName').value.trim(); warehouseZone = document.getElementById('warehouseZone').value.trim();
+      e.preventDefault();
+      userName      = document.getElementById('userName').value.trim();
+      warehouseZone = document.getElementById('warehouseZone').value.trim();
       if (!userName || !warehouseZone) return alert('Please fill both fields.');
-      displayName.textContent = userName; displayZone.textContent = warehouseZone;
-      userInfoContainer.classList.add('hidden'); mainApp.classList.remove('hidden'); loadTable(); clearInput();
+      displayName.textContent = userName;
+      displayZone.textContent = warehouseZone;
+      userInfoContainer.classList.add('hidden');
+      mainApp.classList.remove('hidden');
+      loadTable();
+      clearInput();
     });
   </script>
 </body>
 </html>
-
