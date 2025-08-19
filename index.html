@@ -1,79 +1,52 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Inventory Count</title>
+  <meta charset="UTF-8" />
+  <title>Warehouse Item/Location Scanner</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-    h2 { color: #333; margin-bottom: 5px; }
-    h3 { color: #07459C; margin: 0 0 15px 0; font-weight: bold; }
-    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 4px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    .hidden { display: none !important; }
-    #scanInput { width: 100%; padding: 10px; font-size: 1.1em; margin-bottom: 8px; }
-    #dataTableContainer { max-height: 200px; overflow-y: auto; margin-bottom: 10px; border: 1px solid #ccc; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; font-size: 1em; }
-    tr:hover { background-color: #f1f1f1; }
-    .error { color: red; margin-bottom: 10px; }
-    .info { margin-bottom: 10px; }
-    button { cursor: pointer; }
+    body { font-family: Arial; margin:20px;background:#f5f5f5; }
+    h2{margin-bottom:5px;} h3{margin:0 0 15px;font-weight:bold;color:#07459C;}
+    .container{max-width:600px;margin:auto;background:#fff;padding:20px;border-radius:4px;box-shadow:0 0 10px rgba(0,0,0,0.1);}
+    .hidden{display:none!important}
+    #scanInput{width:100%;padding:10px;font-size:1.1em;margin-bottom:8px}
+    #dataTableContainer{max-height:200px;overflow-y:auto;margin-bottom:10px;border:1px solid #ccc}
+    th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}
+    #dataTable thead th{position:sticky;top:0;background:#fff;z-index:5}
+    button{cursor:pointer}
+    .error{color:red;margin-bottom:10px}
+    .info{margin-bottom:10px}
 
-    /* sticky table header */
-    #dataTable thead th {
-      position: sticky;
-      top: 0;
-      background: #fff;
-      z-index: 5;
-    }
+    .controlBtn{width:80px;height:40px;border-radius:4px;border:none;padding:0;display:flex;justify-content:center;align-items:center;background:#ccc;color:#fff;font-size:14px;margin:5px auto}
+    .controlBtn:disabled{background:#ccc}
 
-    /* scan control buttons */
-    .scanControls {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 5px;
-      margin-bottom: 5px;
-    }
-    .controlBtn { width: 80px; height: 40px; border-radius:4px; border:none; padding:0;
-      display:flex; justify-content:center; align-items:center; background:#ccc; color:#fff; font-size:14px; }
-    .controlBtn:disabled { background:#cccccc; }
-
-    /* keypad */
-    #quantityContainer { text-align: center; margin-bottom: 10px; }
-    #quantityDisplay { font-size: 2em; margin-bottom: 10px; }
-    .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width:300px; margin:auto; }
-    .keypad button { font-size:1.5em; padding:15px; background:#e0e0e0; border:none; border-radius:4px; display:flex;justify-content:center;align-items:center; }
-    #delKey { background:red;color:white; }
-    #enterKey { background:#8EFF26;color:white; }
-    .keypad svg{width:1em;height:1em;stroke:currentColor;stroke-width:4;fill:none;}
+    #quantityContainer{text-align:center;margin-bottom:10px}
+    #quantityDisplay{font-size:2em;margin-bottom:10px}
+    .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:300px;margin:auto}
+    .keypad button{font-size:1.5em;padding:15px;background:#e0e0e0;border:none;border-radius:4px;display:flex;justify-content:center;align-items:center}
+    #delKey{background:red;color:#fff} #enterKey{background:#8EFF26;color:#fff}
+    .keypad svg{width:1em;height:1em;stroke:currentColor;stroke-width:4;fill:none}
   </style>
 </head>
 <body>
 
-<div class="container" id="userInfoContainer">
+<div id="userInfoContainer" class="container">
   <h2>Warehouse Item / Location Scanner</h2>
   <h3>Inventory Count</h3>
-  <form id="userForm">
-    <div><label for="userName">User Name:</label> <input type="text" id="userName" required></div>
-    <div><label for="warehouseZone">Warehouse Zone:</label> <input type="text" id="warehouseZone" required></div>
-    <button type="submit">Start</button>
-  </form>
+  <div><label>User Name:</label><input id="userName" type="text"></div>
+  <div><label>Warehouse Zone:</label><input id="warehouseZone" type="text"></div>
+  <button id="startBtn">Start</button>
 </div>
 
-<div class="container hidden" id="mainApp">
+<div id="mainApp" class="container hidden">
   <div class="info"><strong>User:</strong> <span id="displayName"></span> | <strong>Warehouse Zone:</strong> <span id="displayZone"></span></div>
   <div id="errorMessage" class="error"></div>
 
-  <input type="text" id="scanInput" placeholder="Scan/Type Item" readonly>
-
-  <div class="scanControls" id="scanControlButtons">
-    <button id="showKeyboardBtn" class="controlBtn" style="background:#1BCDFA"><i class="fa-solid fa-keyboard"></i></button>
-    <button id="triggerEnterBtn" class="controlBtn" disabled>
-      <svg viewBox="0 0 24 24" style="width:20px;height:20px"><polyline points="20 6 9 17 4 12" fill="none" stroke="white" stroke-width="4"/></svg>
-    </button>
-  </div>
+  <input id="scanInput" placeholder="Scan/Type Item" type="text">
+  <button id="triggerEnterBtn" class="controlBtn" disabled>
+    <svg viewBox="0 0 24 24" style="width:20px;height:20px"><polyline points="20 6 9 17 4 12" fill="none" stroke="white" stroke-width="4"/></svg>
+  </button>
 
   <div id="quantityContainer" class="hidden">
     <div id="quantityDisplay">0</div>
@@ -99,9 +72,10 @@
 let currentState='item',currentItem='',tempLocation='',rawQuantity='',
 scannedData=JSON.parse(localStorage.getItem('scannedData')||'[]');
 
-const scanInput=document.getElementById('scanInput'),
-scanControlButtons=document.getElementById('scanControlButtons'),
-showKeyboardBtn=document.getElementById('showKeyboardBtn'),
+const startBtn=document.getElementById('startBtn'),
+userInfoContainer=document.getElementById('userInfoContainer'),
+mainApp=document.getElementById('mainApp'),
+scanInput=document.getElementById('scanInput'),
 triggerEnterBtn=document.getElementById('triggerEnterBtn'),
 quantityContainer=document.getElementById('quantityContainer'),
 quantityDisplay=document.getElementById('quantityDisplay'),
@@ -115,55 +89,68 @@ displayZone=document.getElementById('displayZone');
 function formatNumber(v){return v?v.replace(/\B(?=(\d{3})+(?!\d))/g,','):0;}
 function updateDisplay(){quantityDisplay.textContent=formatNumber(rawQuantity);}
 function saveData(){localStorage.setItem('scannedData',JSON.stringify(scannedData));}
+function clearInput(){
+  scanInput.value='';triggerEnterBtn.disabled=true;triggerEnterBtn.style.background='#ccc';scanInput.focus();
+}
 function loadTable(){
  dataTableBody.innerHTML='';
  scannedData.forEach((e,i)=>{
-   dataTableBody.innerHTML+=`<tr><td>${e.item}</td><td>${e.location}</td><td>${formatNumber(e.quantity.toString())}</td>
+   dataTableBody.innerHTML+=`<tr><td>${e.item}</td><td>${e.location}</td><td>${formatNumber(e.quantity+"")}</td>
    <td><button data-index="${i}" class="deleteRow">Delete</button></td></tr>`;
  });
+ document.getElementById('dataTableContainer').scrollTop=document.getElementById('dataTableContainer').scrollHeight;
 }
-function showError(f){errorMessage.textContent=`campo incorrecto, verifica (${f})`;setTimeout(()=>errorMessage.textContent='',3000);}
-function clearInput(){scanInput.value='';scanInput.focus();}
+function showError(field){
+  errorMessage.textContent = field==='Item'
+    ? 'Data error, scan \"Item\" barcode'
+    : 'Data error, scan \"Location\" QR code';
+  setTimeout(()=>errorMessage.textContent='',3000);
+}
 
-showKeyboardBtn.addEventListener('click',()=>{scanInput.removeAttribute('readonly');scanInput.focus();});
-scanInput.addEventListener('blur',()=>{scanInput.setAttribute('readonly',true);});
+startBtn.addEventListener('click',()=>{
+ const userName=document.getElementById('userName').value.trim(),
+       warehouseZone=document.getElementById('warehouseZone').value.trim();
+ if(!userName||!warehouseZone) return alert('Please fill both fields.');
+ displayName.textContent=userName;displayZone.textContent=warehouseZone;
+ userInfoContainer.classList.add('hidden');
+ mainApp.classList.remove('hidden');
+ loadTable();clearInput();
+});
+
 triggerEnterBtn.addEventListener('click',()=>{if(!triggerEnterBtn.disabled) scanInput.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter'}));});
 scanInput.addEventListener('input',()=>{
-  if(scanInput.value.trim()!==''){triggerEnterBtn.disabled=false;triggerEnterBtn.style.background='#8EFF26';}
-  else {triggerEnterBtn.disabled=true;triggerEnterBtn.style.background='#cccccc';}
+ triggerEnterBtn.disabled=scanInput.value.trim()==='';
+ triggerEnterBtn.style.background=triggerEnterBtn.disabled?'#ccc':'#8EFF26';
 });
 
 scanInput.addEventListener('keydown',e=>{
- if(e.key==='Enter'){e.preventDefault();let v=scanInput.value.trim();
+ if(e.key==='Enter'){e.preventDefault();
+   let v=scanInput.value.trim();
    if(currentState==='item'){
      if(!v||/^\d+$/.test(v)){showError('Item');return clearInput();}
-     currentItem=v; currentState='location'; scanInput.placeholder='Scan/Type Location (Only numeric)'; return clearInput();
+     currentItem=v;currentState='location';scanInput.placeholder='Scan/Type Location (Only numeric)';return clearInput();
    }
    if(currentState==='location'){
      if(!currentItem){showError('Item');return clearInput();}
      if(!/^\d+$/.test(v)){showError('Location');return clearInput();}
-     tempLocation=v; currentState='quantity';
-     scanInput.classList.add('hidden');
-     scanControlButtons.classList.add('hidden');
-     rawQuantity='';updateDisplay();
-     quantityContainer.classList.remove('hidden');
+     tempLocation=v;currentState='quantity';
+     scanInput.classList.add('hidden');triggerEnterBtn.classList.add('hidden');
+     rawQuantity='';updateDisplay();quantityContainer.classList.remove('hidden');
    }
  }});
 
 numKeys.forEach(btn=>btn.addEventListener('click',()=>{rawQuantity+=btn.textContent;updateDisplay();}));
 delKey.addEventListener('click',()=>{rawQuantity=rawQuantity.slice(0,-1);updateDisplay();});
 enterKey.addEventListener('click',()=>{
- if(!rawQuantity){showError('Quantity');return;}
+ if(!rawQuantity)return;
  scannedData.push({item:currentItem,location:tempLocation,quantity:parseInt(rawQuantity,10)});
  saveData();loadTable();
  currentItem='';tempLocation='';rawQuantity='';currentState='item';
  quantityContainer.classList.add('hidden');
- scanInput.classList.remove('hidden');
- scanControlButtons.classList.remove('hidden');
+ scanInput.classList.remove('hidden');triggerEnterBtn.classList.remove('hidden');
  scanInput.placeholder='Scan/Type Item';clearInput();
 });
 
-// delete rows
 dataTableBody.addEventListener('click',e=>{
  if(e.target.matches('button.deleteRow')){
    scannedData.splice(+e.target.dataset.index,1);saveData();loadTable();
@@ -171,24 +158,11 @@ dataTableBody.addEventListener('click',e=>{
 
 document.getElementById('exportCSV').addEventListener('click',()=>{
  let csv='data:text/csv;charset=utf-8,User:,'+displayName.textContent+
- '\nWarehouse Zone:,'+displayZone.textContent+'\n\nItem,Location,Quantity\n';
- scannedData.forEach(r=>{csv+=`${r.item},${r.location},${r.quantity}\n`;});
- const uri=encodeURI(csv),a=document.createElement('a');
- a.href=uri;a.download=`scanned_data_${Date.now()}.csv`;document.body.appendChild(a);
- a.click();document.body.removeChild(a);
-});
-
-document.getElementById('userForm').addEventListener('submit',e=>{
- e.preventDefault();
- const userName=document.getElementById('userName').value.trim(),
-       warehouseZone=document.getElementById('warehouseZone').value.trim();
- if(!userName||!warehouseZone)return alert('Please fill both fields.');
- displayName.textContent=userName;displayZone.textContent=warehouseZone;
- document.getElementById('userInfoContainer').classList.add('hidden');
- document.getElementById('mainApp').classList.remove('hidden');
- loadTable();clearInput();
+ '\\nWarehouse Zone:,'+displayZone.textContent+'\\n\\nItem,Location,Quantity\\n';
+ scannedData.forEach(r=>{csv+=r.item+','+r.location+','+r.quantity+'\\n';});
+ const uri=encodeURI(csv),a=document.createElement('a');a.href=uri;a.download='scanned_data_'+Date.now()+'.csv';
+ document.body.appendChild(a);a.click();document.body.removeChild(a);
 });
 </script>
 </body>
 </html>
-
